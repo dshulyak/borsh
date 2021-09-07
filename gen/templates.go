@@ -27,7 +27,7 @@ const (
 		return err
 	}
 	`
-	marshalBytes = `if _, err := borsh.WriteBytes(t.{{ .Name }}[:]); err != nil {
+	marshalBytes = `if err := borsh.WriteBytes(w, t.{{ .Name }}[:]); err != nil {
 		return err
 	}
 	`

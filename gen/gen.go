@@ -51,7 +51,7 @@ func GenerateType(w io.Writer, obj interface{}) error {
 		if strings.ToUpper(field.Name[:1]) != field.Name[:1] {
 			continue
 		}
-		tctx := &typeContext{Name: field.Name, Type: field.Type, Index: "i", Nested: 1}
+		tctx := &typeContext{Name: field.Name, Type: field.Type, Index: "i"}
 		if err := executeMarshal(w, tctx); err != nil {
 			return err
 		}
@@ -64,10 +64,9 @@ func GenerateType(w io.Writer, obj interface{}) error {
 }
 
 type typeContext struct {
-	Name   string
-	Index  string
-	Nested int
-	Type   reflect.Type
+	Name  string
+	Index string
+	Type  reflect.Type
 }
 
 func executeMarshal(w io.Writer, tc *typeContext) error {
@@ -106,7 +105,7 @@ func executeMarshal(w io.Writer, tc *typeContext) error {
 				return err
 			}
 		} else {
-			if err := executeTemplate(w, addLoop, tc); err != nil {
+			if err := executeTemplate(w, marshalLoop, tc); err != nil {
 				return err
 			}
 			if err := executeMarshal(w, &typeContext{
