@@ -1,6 +1,6 @@
 package imported
 
-type ByteAlias [20]byte
+type ByteAlias []byte
 
 type Struct struct {
 	Uint32 uint32

@@ -58,4 +58,50 @@ const (
 
 	unmarshalStart = `func (t *{{ .Name }}) UnmarshalBorsh(r io.Reader) error {
 	`
+	unmarshalBool = `if val, err := borsh.ReadBool(r); err != nil {
+		return err
+	} else {
+		t.{{ .Name }} = val
+	}
+	`
+	unmarshalUint32 = `if val, err := borsh.ReadUint32(r); err != nil {
+		return err
+	} else {
+		t.{{ .Name }} = val
+	}
+	`
+	unmarshalBytesArray = `if err := borsh.ReadBytes(r, t.{{ .Name }}[:]); err != nil {
+		return err
+	}
+	`
+	unmarshalBytesSlice = `if lth, err := borsh.ReadUint32(r); err != nil {
+		return err
+	} else {
+		t.{{ .Name }} = make({{ .TypeName }}, lth)
+		if err := borsh.ReadBytes(r, t.{{ .Name }}[:]); err != nil {
+			return err
+		}
+	}
+	`
+	unmarshalLoop = `if lth, err := borsh.ReadUint32(r); err != nil {
+		return err
+	} else {
+		t.{{ .Name }} = make({{ .TypeName }}, lth)
+		for {{ .Index }} := range t.{{ .Name }} {
+	}`
+	unmarshalStruct = `if err := t.{{ .Name }}.UnmarshalBorsh(r); err != nil {
+		return err
+	}
+	`
+	unmarshalPtr = `if exist, err := borsh.ReadBool(r); err != nil {
+		return err
+	} else if exist {
+		if t.{{ .Name }} == nil {
+			t.{{ .Name }} = new({{ .TypeName }})
+		}
+		if err := t.{{ .Name }}.UnmarshalBorsh(r); err != nil {
+			return err
+		} 
+	}
+	`
 )
