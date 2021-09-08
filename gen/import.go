@@ -17,17 +17,25 @@ func generateImports(objs ...interface{}) map[string]string {
 			if private(field) {
 				continue
 			}
-			pkg := field.Type.PkgPath()
-			parts := strings.Split(pkg, "/")
-			short := parts[len(parts)-1]
-			if strings.Contains(short, "-") {
-				parts = strings.Split(short, "-")
-				short = parts[len(parts)-1]
+			if builtin(field.Type) {
+				continue
 			}
-			rst[pkg] = short
+			if needsImport(field.Type) {
+				rst[field.Type.PkgPath()] = canonicalName(field.Type.PkgPath())
+			}
 		}
 	}
 	return rst
+}
+
+func canonicalName(pkg string) string {
+	parts := strings.Split(pkg, "/")
+	short := parts[len(parts)-1]
+	if strings.Contains(short, "-") {
+		parts = strings.Split(short, "-")
+		short = parts[len(parts)-1]
+	}
+	return short
 }
 
 func private(field reflect.StructField) bool {
@@ -36,4 +44,18 @@ func private(field reflect.StructField) bool {
 
 func sameModule(a, b reflect.Type) bool {
 	return a.PkgPath() == b.PkgPath()
+}
+
+func builtin(typ reflect.Type) bool {
+	return typ.PkgPath() == ""
+}
+
+func needsImport(typ reflect.Type) bool {
+	switch typ.Kind() {
+	case reflect.Ptr:
+		return true
+	case reflect.Slice:
+		return true
+	}
+	return false
 }

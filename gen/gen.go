@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"text/template"
 )
 
 func Generate(pkg string, filepath string, objs ...interface{}) error {
@@ -43,25 +42,15 @@ func Generate(pkg string, filepath string, objs ...interface{}) error {
 	return os.WriteFile(filepath, data, 0o664)
 }
 
-func generateType(w io.Writer, ctx *genContext, obj interface{}) error {
+func generateType(w io.Writer, gc *genContext, obj interface{}) error {
 	typ := reflect.TypeOf(obj)
-
-	if err := executeTemplate(w, marshalStart, &typeContext{Name: typ.Name()}); err != nil {
+	tc := &typeContext{Name: typ.Name(), Type: typ}
+	if err := marshalMethod(w, tc); err != nil {
 		return err
 	}
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		if private(field) {
-			continue
-		}
-		tctx := &typeContext{Name: field.Name, Type: field.Type, Index: "i"}
-		if err := executeMarshal(w, tctx); err != nil {
-			return err
-		}
+	if err := unmarshalMethod(w, gc, tc); err != nil {
+		return err
 	}
-	fmt.Fprintln(w, "return nil")
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
 	return nil
 }
 
@@ -71,12 +60,34 @@ type genContext struct {
 }
 
 type typeContext struct {
-	Name  string
-	Index string
-	Type  reflect.Type
+	Name     string
+	Index    string
+	TypeName string
+	Type     reflect.Type
 }
 
-func executeMarshal(w io.Writer, tc *typeContext) error {
+func marshalMethod(w io.Writer, tc *typeContext) error {
+	typ := tc.Type
+	if err := executeTemplate(w, marshalStart, tc); err != nil {
+		return err
+	}
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if private(field) {
+			continue
+		}
+		tctx := &typeContext{Name: field.Name, Type: field.Type, Index: "i"}
+		if err := marshalField(w, tctx); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintln(w, "return nil")
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+	return nil
+}
+
+func marshalField(w io.Writer, tc *typeContext) error {
 	switch tc.Type.Kind() {
 	case reflect.Bool:
 		if err := executeTemplate(w, marshalBool, tc); err != nil {
@@ -112,10 +123,10 @@ func executeMarshal(w io.Writer, tc *typeContext) error {
 				return err
 			}
 		} else {
-			if err := executeTemplate(w, marshalLoop, tc); err != nil {
+			if err := executeTemplate(w, addLoop, tc); err != nil {
 				return err
 			}
-			if err := executeMarshal(w, &typeContext{
+			if err := marshalField(w, &typeContext{
 				Name:  fmt.Sprintf("%s[%s]", tc.Name, tc.Index),
 				Type:  elem,
 				Index: tc.Index + tc.Index,
@@ -130,10 +141,87 @@ func executeMarshal(w io.Writer, tc *typeContext) error {
 	return nil
 }
 
-func executeTemplate(w io.Writer, text string, ctx interface{}) error {
-	tpl, err := template.New("").Parse(text)
-	if err != nil {
+func unmarshalMethod(w io.Writer, gc *genContext, tc *typeContext) error {
+	typ := tc.Type
+	if err := executeTemplate(w, unmarshalStart, tc); err != nil {
 		return err
 	}
-	return tpl.Execute(w, ctx)
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if private(field) {
+			continue
+		}
+
+		tctx := &typeContext{Name: field.Name, Type: field.Type, TypeName: fullTypeName(gc, field.Type), Index: "i"}
+		if err := unmarshalField(w, gc, tctx); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintln(w, "return nil")
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+	return nil
+}
+
+func unmarshalField(w io.Writer, gc *genContext, tc *typeContext) error {
+	switch tc.Type.Kind() {
+	case reflect.Bool:
+		if err := executeTemplate(w, unmarshalBool, tc); err != nil {
+			return err
+		}
+	case reflect.Uint32:
+		if err := executeTemplate(w, unmarshalUint32, tc); err != nil {
+			return err
+		}
+	case reflect.Struct:
+		if err := executeTemplate(w, unmarshalStruct, tc); err != nil {
+			return err
+		}
+	case reflect.Ptr:
+		switch tc.Type.Elem().Kind() {
+		case reflect.Array:
+			return errors.New("ptr to array is not supported")
+		case reflect.Slice:
+			return errors.New("ptr to slice is not supported")
+		}
+		if err := executeTemplate(w, unmarshalPtr, tc); err != nil {
+			return err
+		}
+	case reflect.Slice:
+		if err := executeTemplate(w, unmarshalLength, tc); err != nil {
+			return err
+		}
+		fallthrough
+	case reflect.Array:
+		elem := tc.Type.Elem()
+		if elem.Kind() == reflect.Uint8 {
+			if err := executeTemplate(w, unmarshalBytes, tc); err != nil {
+				return err
+			}
+		} else {
+			if err := executeTemplate(w, addLoop, tc); err != nil {
+				return err
+			}
+			if err := unmarshalField(w, gc, &typeContext{
+				Name:     fmt.Sprintf("%s[%s]", tc.Name, tc.Index),
+				Type:     elem,
+				TypeName: fullTypeName(gc, elem),
+				Index:    tc.Index + tc.Index,
+			}); err != nil {
+				return err
+			}
+			fmt.Fprintln(w, "}")
+		}
+	default:
+		return fmt.Errorf("type %v is not supported", tc.Type.Kind())
+	}
+	return nil
+}
+
+func fullTypeName(gc *genContext, typ reflect.Type) string {
+	typeName := typ.Name()
+	if canonical, exist := gc.Imported[typ.PkgPath()]; exist {
+		typeName = fmt.Sprintf("%s.%s", canonical, typeName)
+	}
+	return typeName
 }

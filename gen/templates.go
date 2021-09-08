@@ -1,5 +1,10 @@
 package gen
 
+import (
+	"io"
+	"text/template"
+)
+
 const (
 	marshalStart = `func (t *{{ .Name }}) MarshalBorsh(w io.Writer) error {
 	`
@@ -52,7 +57,8 @@ const (
 		return err
 	}
 	`
-	marshalLoop = `
+
+	addLoop = `
 	for {{ .Index }} := range t.{{ .Name }} {
 	`
 
@@ -70,25 +76,16 @@ const (
 		t.{{ .Name }} = val
 	}
 	`
-	unmarshalBytesArray = `if err := borsh.ReadBytes(r, t.{{ .Name }}[:]); err != nil {
+	unmarshalBytes = `if err := borsh.ReadBytes(r, t.{{ .Name }}[:]); err != nil {
 		return err
 	}
 	`
-	unmarshalBytesSlice = `if lth, err := borsh.ReadUint32(r); err != nil {
+	unmarshalLength = `if lth, err := borsh.ReadUint32(r); err != nil {
 		return err
 	} else {
 		t.{{ .Name }} = make({{ .TypeName }}, lth)
-		if err := borsh.ReadBytes(r, t.{{ .Name }}[:]); err != nil {
-			return err
-		}
 	}
 	`
-	unmarshalLoop = `if lth, err := borsh.ReadUint32(r); err != nil {
-		return err
-	} else {
-		t.{{ .Name }} = make({{ .TypeName }}, lth)
-		for {{ .Index }} := range t.{{ .Name }} {
-	}`
 	unmarshalStruct = `if err := t.{{ .Name }}.UnmarshalBorsh(r); err != nil {
 		return err
 	}
@@ -105,3 +102,11 @@ const (
 	}
 	`
 )
+
+func executeTemplate(w io.Writer, text string, ctx interface{}) error {
+	tpl, err := template.New("").Parse(text)
+	if err != nil {
+		return err
+	}
+	return tpl.Execute(w, ctx)
+}

@@ -7,6 +7,5 @@ import (
 type Local struct{}
 
 type Hello struct {
-	ID    imported.ByteAlias
-	Local Local
+	ID imported.ByteAlias
 }
