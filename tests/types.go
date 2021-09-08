@@ -5,12 +5,14 @@ import (
 	"github.com/dshulyak/borsh/tests/imported"
 )
 
+type Alias [20]byte
+
 type Local struct {
+	LocalAlias  []Alias
 	Bool        bool
 	Uint32Slice []uint32
 	Uint32Array [30]uint32
 	PtrToSelf   *Local
-	PtrToHello  *Hello
 }
 
 type Hello struct {

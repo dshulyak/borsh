@@ -11,12 +11,32 @@ import (
 )
 
 func (t *Local) MarshalBorsh(w io.Writer) error {
-	// field Bool (0)
+	// field LocalAlias (0)
+	if t.LocalAlias == nil {
+		if err := borsh.WriteBool(w, false); err != nil {
+			return err
+		}
+	} else {
+		if err := borsh.WriteBool(w, true); err != nil {
+			return err
+		}
+		if err := borsh.WriteLength(w, len(t.LocalAlias)); err != nil {
+			return err
+		}
+	}
+
+	for i := range t.LocalAlias {
+		if err := borsh.WriteBytes(w, t.LocalAlias[i][:]); err != nil {
+			return err
+		}
+	}
+
+	// field Bool (1)
 	if err := borsh.WriteBool(w, t.Bool); err != nil {
 		return err
 	}
 
-	// field Uint32Slice (1)
+	// field Uint32Slice (2)
 	if t.Uint32Slice == nil {
 		if err := borsh.WriteBool(w, false); err != nil {
 			return err
@@ -36,7 +56,7 @@ func (t *Local) MarshalBorsh(w io.Writer) error {
 		}
 	}
 
-	// field Uint32Array (2)
+	// field Uint32Array (3)
 
 	for i := range t.Uint32Array {
 		if err := borsh.WriteUint32(w, t.Uint32Array[i]); err != nil {
@@ -44,7 +64,7 @@ func (t *Local) MarshalBorsh(w io.Writer) error {
 		}
 	}
 
-	// field PtrToSelf (3)
+	// field PtrToSelf (4)
 	if t.PtrToSelf == nil {
 		if err := borsh.WriteBool(w, false); err != nil {
 			return err
@@ -58,32 +78,35 @@ func (t *Local) MarshalBorsh(w io.Writer) error {
 		}
 	}
 
-	// field PtrToHello (4)
-	if t.PtrToHello == nil {
-		if err := borsh.WriteBool(w, false); err != nil {
-			return err
-		}
-	} else {
-		if err := borsh.WriteBool(w, true); err != nil {
-			return err
-		}
-		if err := t.PtrToHello.MarshalBorsh(w); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
 func (t *Local) UnmarshalBorsh(r io.Reader) error {
-	// field Bool (0)
+	// field LocalAlias (0)
+	if exist, err := borsh.ReadBool(r); err != nil {
+		return err
+	} else if exist {
+		if lth, err := borsh.ReadUint32(r); err != nil {
+			return err
+		} else {
+			t.LocalAlias = make([]Alias, lth)
+		}
+	}
+
+	for i := range t.LocalAlias {
+		if err := borsh.ReadBytes(r, t.LocalAlias[i][:]); err != nil {
+			return err
+		}
+	}
+
+	// field Bool (1)
 	if val, err := borsh.ReadBool(r); err != nil {
 		return err
 	} else {
 		t.Bool = val
 	}
 
-	// field Uint32Slice (1)
+	// field Uint32Slice (2)
 	if exist, err := borsh.ReadBool(r); err != nil {
 		return err
 	} else if exist {
@@ -102,7 +125,7 @@ func (t *Local) UnmarshalBorsh(r io.Reader) error {
 		}
 	}
 
-	// field Uint32Array (2)
+	// field Uint32Array (3)
 
 	for i := range t.Uint32Array {
 		if val, err := borsh.ReadUint32(r); err != nil {
@@ -112,7 +135,7 @@ func (t *Local) UnmarshalBorsh(r io.Reader) error {
 		}
 	}
 
-	// field PtrToSelf (3)
+	// field PtrToSelf (4)
 	if exist, err := borsh.ReadBool(r); err != nil {
 		return err
 	} else if exist {
@@ -120,18 +143,6 @@ func (t *Local) UnmarshalBorsh(r io.Reader) error {
 			t.PtrToSelf = new(Local)
 		}
 		if err := t.PtrToSelf.UnmarshalBorsh(r); err != nil {
-			return err
-		}
-	}
-
-	// field PtrToHello (4)
-	if exist, err := borsh.ReadBool(r); err != nil {
-		return err
-	} else if exist {
-		if t.PtrToHello == nil {
-			t.PtrToHello = new(Hello)
-		}
-		if err := t.PtrToHello.UnmarshalBorsh(r); err != nil {
 			return err
 		}
 	}

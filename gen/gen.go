@@ -238,10 +238,6 @@ func unmarshalField(w io.Writer, gc *genContext, tc *typeContext) error {
 }
 
 func fullTypeName(gc *genContext, tc *typeContext, typ reflect.Type) string {
-	// typeName := typ.Name()
-	// if canonical, exist := gc.Imported[typ.PkgPath()]; exist {
-	// 	typeName = fmt.Sprintf("%s.%s", canonical, typeName)
-	// }
 	pkg := typ.PkgPath()
 	name := typ.Name()
 	str := typ.String()
@@ -249,6 +245,13 @@ func fullTypeName(gc *genContext, tc *typeContext, typ reflect.Type) string {
 		pkg = typ.Elem().PkgPath()
 		name = typ.Elem().Name()
 		str = typ.Elem().String()
+	}
+
+	// FIXME this needs to go deeper in order to support nested aliases
+	if typ.Kind() == reflect.Slice {
+		if typ.Elem().PkgPath() == tc.ParentPackage {
+			return "[]" + typ.Elem().Name()
+		}
 	}
 	if tc.ParentPackage == pkg {
 		return name
