@@ -7,8 +7,9 @@ import (
 	"testing"
 	"testing/quick"
 
+	"github.com/dshulyak/borsh/tests"
+
 	fuzz "github.com/google/gofuzz"
-	"github.com/spacemeshos/borsh/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

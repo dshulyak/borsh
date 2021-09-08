@@ -1,8 +1,8 @@
 package tests
 
 import (
-	"github.com/spacemeshos/borsh/tests/go-lib"
-	"github.com/spacemeshos/borsh/tests/imported"
+	"github.com/dshulyak/borsh/tests/go-lib"
+	"github.com/dshulyak/borsh/tests/imported"
 )
 
 type Local struct {
