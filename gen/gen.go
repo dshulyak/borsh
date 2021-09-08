@@ -22,8 +22,7 @@ func Generate(pkg string, filepath string, objs ...interface{}) error {
 		"io"
 
 		"github.com/spacemeshos/borsh"
-
-		{{ range $pkg, $short := .Imported }}{{ $short }} "{{ $pkg }}"
+		{{ range $pkg, $short := .Imported }}"{{ $pkg }}"
         {{ end }}
 	)
 	`, ctx)
@@ -44,9 +43,11 @@ func Generate(pkg string, filepath string, objs ...interface{}) error {
 	return os.WriteFile(filepath, data, 0o664)
 }
 
+const indexVar = "i"
+
 func generateType(w io.Writer, gc *genContext, obj interface{}) error {
 	typ := reflect.TypeOf(obj)
-	tc := &typeContext{Name: typ.Name(), Type: typ}
+	tc := &typeContext{Name: typ.Name(), Type: typ, ParentPackage: typ.PkgPath()}
 	if err := marshalMethod(w, tc); err != nil {
 		return err
 	}
@@ -58,14 +59,15 @@ func generateType(w io.Writer, gc *genContext, obj interface{}) error {
 
 type genContext struct {
 	Package  string
-	Imported map[string]string // full path to shortname
+	Imported map[string]struct{} // full path to shortname
 }
 
 type typeContext struct {
-	Name     string
-	Index    string
-	TypeName string
-	Type     reflect.Type
+	Name          string
+	Index         string
+	TypeName      string
+	Type          reflect.Type
+	ParentPackage string
 }
 
 func marshalMethod(w io.Writer, tc *typeContext) error {
@@ -78,10 +80,16 @@ func marshalMethod(w io.Writer, tc *typeContext) error {
 		if private(field) {
 			continue
 		}
-		tctx := &typeContext{Name: field.Name, Type: field.Type, Index: "i"}
+		tctx := &typeContext{
+			Name:  field.Name,
+			Type:  field.Type,
+			Index: indexVar,
+		}
+		fmt.Fprintf(w, "// field %v (%d)\n", field.Name, i)
 		if err := marshalField(w, tctx); err != nil {
 			return err
 		}
+		fmt.Fprintln(w)
 	}
 	fmt.Fprintln(w, "return nil")
 	fmt.Fprintln(w, "}")
@@ -114,7 +122,7 @@ func marshalField(w io.Writer, tc *typeContext) error {
 			return err
 		}
 	case reflect.Slice:
-		if err := executeTemplate(w, marshalLength, tc); err != nil {
+		if err := executeTemplate(w, marshalSlice, tc); err != nil {
 			return err
 		}
 		fallthrough
@@ -131,7 +139,7 @@ func marshalField(w io.Writer, tc *typeContext) error {
 			if err := marshalField(w, &typeContext{
 				Name:  fmt.Sprintf("%s[%s]", tc.Name, tc.Index),
 				Type:  elem,
-				Index: tc.Index + tc.Index,
+				Index: tc.Index + indexVar,
 			}); err != nil {
 				return err
 			}
@@ -154,10 +162,18 @@ func unmarshalMethod(w io.Writer, gc *genContext, tc *typeContext) error {
 			continue
 		}
 
-		tctx := &typeContext{Name: field.Name, Type: field.Type, TypeName: fullTypeName(gc, field.Type), Index: "i"}
+		tctx := &typeContext{
+			Name:          field.Name,
+			Type:          field.Type,
+			TypeName:      fullTypeName(gc, tc, field.Type),
+			Index:         indexVar,
+			ParentPackage: tc.ParentPackage,
+		}
+		fmt.Fprintf(w, "// field %v (%d)\n", field.Name, i)
 		if err := unmarshalField(w, gc, tctx); err != nil {
 			return err
 		}
+		fmt.Fprintln(w)
 	}
 	fmt.Fprintln(w, "return nil")
 	fmt.Fprintln(w, "}")
@@ -190,7 +206,7 @@ func unmarshalField(w io.Writer, gc *genContext, tc *typeContext) error {
 			return err
 		}
 	case reflect.Slice:
-		if err := executeTemplate(w, unmarshalLength, tc); err != nil {
+		if err := executeTemplate(w, unmarshalSlice, tc); err != nil {
 			return err
 		}
 		fallthrough
@@ -205,10 +221,11 @@ func unmarshalField(w io.Writer, gc *genContext, tc *typeContext) error {
 				return err
 			}
 			if err := unmarshalField(w, gc, &typeContext{
-				Name:     fmt.Sprintf("%s[%s]", tc.Name, tc.Index),
-				Type:     elem,
-				TypeName: fullTypeName(gc, elem),
-				Index:    tc.Index + tc.Index,
+				Name:          fmt.Sprintf("%s[%s]", tc.Name, tc.Index),
+				Type:          elem,
+				TypeName:      fullTypeName(gc, tc, elem),
+				Index:         tc.Index + indexVar,
+				ParentPackage: tc.ParentPackage,
 			}); err != nil {
 				return err
 			}
@@ -220,10 +237,21 @@ func unmarshalField(w io.Writer, gc *genContext, tc *typeContext) error {
 	return nil
 }
 
-func fullTypeName(gc *genContext, typ reflect.Type) string {
+func fullTypeName(gc *genContext, tc *typeContext, typ reflect.Type) string {
 	// typeName := typ.Name()
 	// if canonical, exist := gc.Imported[typ.PkgPath()]; exist {
 	// 	typeName = fmt.Sprintf("%s.%s", canonical, typeName)
 	// }
-	return typ.String()
+	pkg := typ.PkgPath()
+	name := typ.Name()
+	str := typ.String()
+	if typ.Kind() == reflect.Ptr {
+		pkg = typ.Elem().PkgPath()
+		name = typ.Elem().Name()
+		str = typ.Elem().String()
+	}
+	if tc.ParentPackage == pkg {
+		return name
+	}
+	return str
 }

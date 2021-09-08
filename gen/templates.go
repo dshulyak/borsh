@@ -28,8 +28,17 @@ const (
 		return er r
 	}
 	`
-	marshalLength = `if err := borsh.WriteLength(w, len(t.{{ .Name }})); err != nil {
-		return err
+	marshalSlice = `if t.{{ .Name }} == nil {
+		if err := borsh.WriteBool(w, false); err != nil {
+			return err
+		}
+	} else {
+		if err := borsh.WriteBool(w, true); err != nil {
+			return err
+		}
+		if err := borsh.WriteLength(w, len(t.{{ .Name }})); err != nil {
+			return err
+		}
 	}
 	`
 	marshalBytes = `if err := borsh.WriteBytes(w, t.{{ .Name }}[:]); err != nil {
@@ -80,10 +89,14 @@ const (
 		return err
 	}
 	`
-	unmarshalLength = `if lth, err := borsh.ReadUint32(r); err != nil {
+	unmarshalSlice = `if exist, err := borsh.ReadBool(r); err != nil {
 		return err
-	} else {
-		t.{{ .Name }} = make({{ .TypeName }}, lth)
+	} else if exist {	
+		if lth, err := borsh.ReadUint32(r); err != nil {
+			return err
+		} else {
+			t.{{ .Name }} = make({{ .TypeName }}, lth)
+		}
 	}
 	`
 	unmarshalStruct = `if err := t.{{ .Name }}.UnmarshalBorsh(r); err != nil {

@@ -1,13 +1,12 @@
 package gen
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 )
 
-func generateImports(objs ...interface{}) map[string]string {
-	rst := map[string]string{}
+func generateImports(objs ...interface{}) map[string]struct{} {
+	rst := map[string]struct{}{}
 	for _, obj := range objs {
 		typ := reflect.TypeOf(obj)
 		for i := 0; i < typ.NumField(); i++ {
@@ -21,23 +20,19 @@ func generateImports(objs ...interface{}) map[string]string {
 			if builtin(field.Type) {
 				continue
 			}
-			fmt.Println(field.Type.PkgPath(), field.Type.Kind())
 			if needsImport(field.Type) {
-				rst[field.Type.PkgPath()] = canonicalName(field.Type.PkgPath())
+				rst[canonicalPath(field.Type)] = struct{}{}
 			}
 		}
 	}
 	return rst
 }
 
-func canonicalName(pkg string) string {
-	parts := strings.Split(pkg, "/")
-	short := parts[len(parts)-1]
-	if strings.Contains(short, "-") {
-		parts = strings.Split(short, "-")
-		short = parts[len(parts)-1]
+func canonicalPath(typ reflect.Type) string {
+	if typ.Kind() == reflect.Ptr {
+		return typ.Elem().PkgPath()
 	}
-	return short
+	return typ.PkgPath()
 }
 
 func private(field reflect.StructField) bool {
@@ -45,10 +40,19 @@ func private(field reflect.StructField) bool {
 }
 
 func sameModule(a, b reflect.Type) bool {
+	if b.Kind() == reflect.Ptr {
+		b = b.Elem()
+	}
+	if a.Kind() == reflect.Ptr {
+		a = a.Elem()
+	}
 	return a.PkgPath() == b.PkgPath()
 }
 
 func builtin(typ reflect.Type) bool {
+	if typ.Kind() == reflect.Ptr {
+		return typ.Elem().PkgPath() == ""
+	}
 	return typ.PkgPath() == ""
 }
 
