@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-func ReedBool(r io.Reader) (bool, error) {
+func ReadBool(r io.Reader) (bool, error) {
 	byt, err := readByte(r)
 	if err != nil {
 		return false, err

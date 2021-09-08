@@ -41,11 +41,11 @@ const (
 	}
 	`
 	marshalPtr = `if t.{{ .Name }} == nil {
-		if err := borsh.WriteBool(false); err != nil {
+		if err := borsh.WriteBool(w, false); err != nil {
 			return err
 		}
 	} else {
-		if err := borsh.WriteBool(true); err != nil {
+		if err := borsh.WriteBool(w, true); err != nil {
 			return err
 		}
 		if err := t.{{ .Name }}.MarshalBorsh(w); err != nil {

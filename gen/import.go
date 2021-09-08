@@ -1,6 +1,7 @@
 package gen
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -20,6 +21,7 @@ func generateImports(objs ...interface{}) map[string]string {
 			if builtin(field.Type) {
 				continue
 			}
+			fmt.Println(field.Type.PkgPath(), field.Type.Kind())
 			if needsImport(field.Type) {
 				rst[field.Type.PkgPath()] = canonicalName(field.Type.PkgPath())
 			}
