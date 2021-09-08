@@ -1,4 +1,4 @@
-module github.com/spacemeshos/borsh
+module github.com/dshulyak/borsh
 
 go 1.16
 
