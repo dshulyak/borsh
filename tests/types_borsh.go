@@ -10,6 +10,35 @@ import (
 	"github.com/dshulyak/borsh/tests/imported"
 )
 
+func (t *Local) SizeBorsh() (size int) {
+	// field LocalAlias (0)
+	size += 1
+	if t.LocalAlias != nil {
+		size += 4
+	}
+
+	for i := range t.LocalAlias {
+		size += len(t.LocalAlias[i])
+	}
+
+	// field Bool (1)
+	size += 1
+
+	// field Uint32Slice (2)
+	size += 1 + len(t.Uint32Slice)*4
+
+	// field Uint32Array (3)
+	size += len(t.Uint32Array) * 4
+
+	// field PtrToSelf (4)
+	size += 1
+	if t.PtrToSelf != nil {
+		size += t.PtrToSelf.SizeBorsh()
+	}
+
+	return
+}
+
 func (t *Local) MarshalBorsh(w io.Writer) error {
 	// field LocalAlias (0)
 	if t.LocalAlias == nil {
@@ -148,6 +177,81 @@ func (t *Local) UnmarshalBorsh(r io.Reader) error {
 	}
 
 	return nil
+}
+
+func (t *Hello) SizeBorsh() (size int) {
+	// field ID (0)
+	size += len(t.ID)
+
+	// field Ptr (1)
+	size += 1
+	if t.Ptr != nil {
+		size += t.Ptr.SizeBorsh()
+	}
+
+	// field Ptrs (2)
+	size += 1
+	if t.Ptrs != nil {
+		size += 4
+	}
+
+	for i := range t.Ptrs {
+		size += 1
+		if t.Ptrs[i] != nil {
+			size += t.Ptrs[i].SizeBorsh()
+		}
+	}
+
+	// field NestedPtrs (3)
+	size += 1
+	if t.NestedPtrs != nil {
+		size += 4
+	}
+
+	for i := range t.NestedPtrs {
+		size += 1
+		if t.NestedPtrs[i] != nil {
+			size += 4
+		}
+
+		for ii := range t.NestedPtrs[i] {
+			size += 1
+			if t.NestedPtrs[i][ii] != nil {
+				size += t.NestedPtrs[i][ii].SizeBorsh()
+			}
+		}
+	}
+
+	// field BytesIDs (4)
+	size += 1
+	if t.BytesIDs != nil {
+		size += 4
+	}
+
+	for i := range t.BytesIDs {
+		size += len(t.BytesIDs[i])
+	}
+
+	// field BytesCollection (5)
+	size += 1
+	if t.BytesCollection != nil {
+		size += 4
+	}
+
+	for i := range t.BytesCollection {
+		size += 1
+		if t.BytesCollection[i] != nil {
+			size += 4 + len(t.BytesCollection[i])
+		}
+	}
+
+	// field AnotherImport (6)
+	size += 1
+	if t.AnotherImport != nil {
+		size += t.AnotherImport.SizeBorsh()
+	}
+
+	return
 }
 
 func (t *Hello) MarshalBorsh(w io.Writer) error {

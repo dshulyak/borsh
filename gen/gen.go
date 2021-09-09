@@ -48,6 +48,9 @@ const indexVar = "i"
 func generateType(w io.Writer, gc *genContext, obj interface{}) error {
 	typ := reflect.TypeOf(obj)
 	tc := &typeContext{Name: typ.Name(), Type: typ, ParentPackage: typ.PkgPath()}
+	if err := sizeMethod(w, gc, tc); err != nil {
+		return err
+	}
 	if err := marshalMethod(w, tc); err != nil {
 		return err
 	}
@@ -221,6 +224,115 @@ func unmarshalField(w io.Writer, gc *genContext, tc *typeContext) error {
 				return err
 			}
 			if err := unmarshalField(w, gc, &typeContext{
+				Name:          fmt.Sprintf("%s[%s]", tc.Name, tc.Index),
+				Type:          elem,
+				TypeName:      fullTypeName(gc, tc, elem),
+				Index:         tc.Index + indexVar,
+				ParentPackage: tc.ParentPackage,
+			}); err != nil {
+				return err
+			}
+			fmt.Fprintln(w, "}")
+		}
+	default:
+		return fmt.Errorf("type %v is not supported", tc.Type.Kind())
+	}
+	return nil
+}
+
+func sizeMethod(w io.Writer, gc *genContext, tc *typeContext) error {
+	typ := tc.Type
+	if err := executeTemplate(w, sizeStart, tc); err != nil {
+		return err
+	}
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if private(field) {
+			continue
+		}
+
+		tctx := &typeContext{
+			Name:          field.Name,
+			Type:          field.Type,
+			TypeName:      fullTypeName(gc, tc, field.Type),
+			Index:         indexVar,
+			ParentPackage: tc.ParentPackage,
+		}
+		fmt.Fprintf(w, "// field %v (%d)\n", field.Name, i)
+		if err := sizeField(w, gc, tctx); err != nil {
+			return err
+		}
+		fmt.Fprintln(w)
+	}
+	fmt.Fprintln(w, "return")
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+	return nil
+}
+
+func sizeField(w io.Writer, gc *genContext, tc *typeContext) error {
+	switch tc.Type.Kind() {
+	case reflect.Bool:
+		fmt.Fprintln(w, "size += 1")
+	case reflect.Uint32:
+		fmt.Fprintln(w, "size += 4")
+	case reflect.Struct:
+		if err := executeTemplate(w, sizeStruct, tc); err != nil {
+			return err
+		}
+	case reflect.Ptr:
+		switch tc.Type.Elem().Kind() {
+		case reflect.Array:
+			return errors.New("ptr to array is not supported")
+		case reflect.Slice:
+			return errors.New("ptr to slice is not supported")
+		}
+		if err := executeTemplate(w, sizePtr, tc); err != nil {
+			return err
+		}
+	case reflect.Slice:
+		elem := tc.Type.Elem()
+		if elem.Kind() == reflect.Uint8 {
+			if err := executeTemplate(w, sizeBytesSlice, tc); err != nil {
+				return err
+			}
+		} else if elem.Kind() == reflect.Uint32 {
+			if err := executeTemplate(w, sizeSliceUint32, tc); err != nil {
+				return err
+			}
+		} else {
+			if err := executeTemplate(w, sizeSlice, tc); err != nil {
+				return err
+			}
+			if err := executeTemplate(w, addLoop, tc); err != nil {
+				return err
+			}
+			if err := sizeField(w, gc, &typeContext{
+				Name:          fmt.Sprintf("%s[%s]", tc.Name, tc.Index),
+				Type:          elem,
+				TypeName:      fullTypeName(gc, tc, elem),
+				Index:         tc.Index + indexVar,
+				ParentPackage: tc.ParentPackage,
+			}); err != nil {
+				return err
+			}
+			fmt.Fprintln(w, "}")
+		}
+	case reflect.Array:
+		elem := tc.Type.Elem()
+		if elem.Kind() == reflect.Uint8 {
+			if err := executeTemplate(w, sizeBytes, tc); err != nil {
+				return err
+			}
+		} else if elem.Kind() == reflect.Uint32 {
+			if err := executeTemplate(w, sizeArrayUint32, tc); err != nil {
+				return err
+			}
+		} else {
+			if err := executeTemplate(w, addLoop, tc); err != nil {
+				return err
+			}
+			if err := sizeField(w, gc, &typeContext{
 				Name:          fmt.Sprintf("%s[%s]", tc.Name, tc.Index),
 				Type:          elem,
 				TypeName:      fullTypeName(gc, tc, elem),

@@ -38,6 +38,26 @@ func TestFuzzDecode(t *testing.T) {
 	}))
 }
 
+func TestFuzzSize(t *testing.T) {
+	assert.NoError(t, quick.Check(func(h1 *tests.Hello) bool {
+		var buf bytes.Buffer
+		if !assert.NoError(t, h1.MarshalBorsh(&buf)) {
+			return false
+		}
+		return assert.Len(t, buf.Bytes(), h1.SizeBorsh())
+	}, &quick.Config{
+		MaxCountScale: 100,
+		Values: func(values []reflect.Value, rng *rand.Rand) {
+			require.Len(t, values, 1)
+			fuzzer := fuzz.New()
+			fuzzer = fuzzer.RandSource(rng)
+			var h1 tests.Hello
+			fuzzer.Fuzz(&h1)
+			values[0] = reflect.ValueOf(&h1)
+		},
+	}))
+}
+
 func TestFuzzNoCrash(t *testing.T) {
 	assert.NoError(t, quick.Check(func(buf []byte) bool {
 		b := bytes.NewBuffer(buf)

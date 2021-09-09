@@ -8,6 +8,19 @@ import (
 	"github.com/dshulyak/borsh"
 )
 
+func (t *Struct) SizeBorsh() (size int) {
+	// field Uint32 (0)
+	size += 4
+
+	// field Bytes (1)
+	size += 1
+	if t.Bytes != nil {
+		size += 4 + len(t.Bytes)
+	}
+
+	return
+}
+
 func (t *Struct) MarshalBorsh(w io.Writer) error {
 	// field Uint32 (0)
 	if err := borsh.WriteUint32(w, t.Uint32); err != nil {

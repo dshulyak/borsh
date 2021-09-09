@@ -70,48 +70,78 @@ const (
 	addLoop = `
 	for {{ .Index }} := range t.{{ .Name }} {
 	`
+)
 
+const (
 	unmarshalStart = `func (t *{{ .Name }}) UnmarshalBorsh(r io.Reader) error {
-	`
+		`
 	unmarshalBool = `if val, err := borsh.ReadBool(r); err != nil {
-		return err
-	} else {
-		t.{{ .Name }} = val
-	}
-	`
-	unmarshalUint32 = `if val, err := borsh.ReadUint32(r); err != nil {
-		return err
-	} else {
-		t.{{ .Name }} = val
-	}
-	`
-	unmarshalBytes = `if err := borsh.ReadBytes(r, t.{{ .Name }}[:]); err != nil {
-		return err
-	}
-	`
-	unmarshalSlice = `if exist, err := borsh.ReadBool(r); err != nil {
-		return err
-	} else if exist {	
-		if lth, err := borsh.ReadUint32(r); err != nil {
 			return err
 		} else {
-			t.{{ .Name }} = make({{ .TypeName }}, lth)
+			t.{{ .Name }} = val
 		}
-	}
-	`
-	unmarshalStruct = `if err := t.{{ .Name }}.UnmarshalBorsh(r); err != nil {
-		return err
-	}
-	`
-	unmarshalPtr = `if exist, err := borsh.ReadBool(r); err != nil {
-		return err
-	} else if exist {
-		if t.{{ .Name }} == nil {
-			t.{{ .Name }} = new({{ .TypeName }})
-		}
-		if err := t.{{ .Name }}.UnmarshalBorsh(r); err != nil {
+		`
+	unmarshalUint32 = `if val, err := borsh.ReadUint32(r); err != nil {
 			return err
-		} 
+		} else {
+			t.{{ .Name }} = val
+		}
+		`
+	unmarshalBytes = `if err := borsh.ReadBytes(r, t.{{ .Name }}[:]); err != nil {
+			return err
+		}
+		`
+	unmarshalSlice = `if exist, err := borsh.ReadBool(r); err != nil {
+			return err
+		} else if exist {	
+			if lth, err := borsh.ReadUint32(r); err != nil {
+				return err
+			} else {
+				t.{{ .Name }} = make({{ .TypeName }}, lth)
+			}
+		}
+		`
+	unmarshalStruct = `if err := t.{{ .Name }}.UnmarshalBorsh(r); err != nil {
+			return err
+		}
+		`
+	unmarshalPtr = `if exist, err := borsh.ReadBool(r); err != nil {
+			return err
+		} else if exist {
+			if t.{{ .Name }} == nil {
+				t.{{ .Name }} = new({{ .TypeName }})
+			}
+			if err := t.{{ .Name }}.UnmarshalBorsh(r); err != nil {
+				return err
+			} 
+		}
+		`
+)
+
+const (
+	sizeStart = `func (t *{{ .Name }}) SizeBorsh() (size int) {	
+	`
+	sizeBytes = `size += len(t.{{ .Name }})
+	`
+	sizeArrayUint32 = `size += len(t.{{ .Name }}) * 4
+	`
+	sizeSliceUint32 = `size += 1 + len(t.{{ .Name }}) * 4
+	`
+	sizeBytesSlice = `size += 1
+	if t.{{ .Name }} != nil {
+		size += 4 + len(t.{{ .Name }})
+	}
+	`
+	sizeSlice = `size += 1
+	if t.{{ .Name }} != nil {
+		size += 4
+	}
+	`
+	sizeStruct = `size += t.{{ .Name }}.SizeBorsh()
+	`
+	sizePtr = `size += 1
+	if t.{{ .Name }} != nil {
+		size += t.{{ .Name }}.SizeBorsh()
 	}
 	`
 )
